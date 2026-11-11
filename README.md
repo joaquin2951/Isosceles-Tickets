@@ -4,6 +4,14 @@ Sistema web de gestión de consultas (tickets) para una inmobiliaria. El adminis
 
 > Desarrollado y entregado a una inmobiliaria real. Este repositorio es una **versión de portfolio**: no está conectado a la base de datos del cliente y trae datos ficticios para probarlo en local.
 
+## Capturas
+
+| Panel del administrador | Tickets finalizados |
+|---|---|
+| ![Panel del administrador](docs/1.png) | ![Tickets finalizados](docs/2.png) |
+| **Login (modo demo)** | **Reportes por asesor** |
+| ![Login con usuarios demo](docs/3.png) | ![Reportes mensuales](docs/4.png) |
+
 ## Funcionalidades
 
 - **Login con roles** (admin / asesor) usando Firebase Authentication.
@@ -19,9 +27,9 @@ Sistema web de gestión de consultas (tickets) para una inmobiliaria. El adminis
 
 HTML + Bootstrap 5 + JavaScript (ES Modules) · Firebase Authentication · Cloud Firestore · Firebase Hosting · SweetAlert2 · SheetJS (export a Excel)
 
-## Probarlo en local
+## Probarlo en local (2 comandos)
 
-Usa el [Firebase Emulator Suite](https://firebase.google.com/docs/emulator-suite): **no hace falta cuenta de Google ni crear un proyecto**.
+Usa el [Firebase Emulator Suite](https://firebase.google.com/docs/emulator-suite): **no hace falta cuenta de Google ni crear un proyecto**, todo corre en tu máquina.
 
 Requisitos: [Node.js 18+](https://nodejs.org) y [Java 11+](https://adoptium.net) (lo necesita el emulador de Firestore).
 
