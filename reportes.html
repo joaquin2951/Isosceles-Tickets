@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Isósceles - Reportes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="src/iconoCASA.ico">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <style>
+
+        /* Colores de Marca */
+
+body{
+    background-color: #818080;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+:root {
+    --naranja-isosceles: #FF6600;
+    --negro-isosceles: #1A1A1A;
+}
+
+/* Barra de Navegación */
+.navbar {
+    background-color: var(--negro-isosceles) !important;
+    border-bottom: 3px solid var(--naranja-isosceles);
+}
+
+/* Botones Principales */
+.btn-primary {
+    background-color: var(--naranja-isosceles) !important;
+    border-color: var(--naranja-isosceles) !important;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.btn-primary:hover {
+    background-color: #e65c00 !important; /* Un naranja un poco más oscuro al pasar el mouse */
+}
+
+/* Las Cards de los Tickets */
+.card {
+    border-radius: 8px;
+    border: none;
+    border-left: 5px solid var(--negro-isosceles); /* Detalle elegante */
+}
+body {
+    position: relative;
+    background-color: #f8f9fa; /* Color de fondo base */
+    min-height: 100vh;
+}
+
+body::before {
+    content: "";
+    position: fixed; /* Mantiene el fondo fijo al scrollear */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* Lo manda detrás de todo */
+    
+    /* CONFIGURACIÓN DEL LOGO */
+    background-image: url('src/LOGOORIGINAL.png'); /* Asegúrate de que la ruta sea correcta */
+    background-repeat: repeat;
+    background-size: 150px; /* Tamaño de cada logo en el patrón */
+    
+    /* EFECTO MARCA DE AGUA */
+    opacity: 0.1; /* 0.05 es muy sutil, súbelo a 0.1 si lo quieres más fuerte */
+    
+}
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand">📊 Reportes de Rendimiento</span>
+            <a href="index.html" class="btn btn-outline-light">Volver al Panel</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Mes</label>
+                        <select id="reporteMes" class="form-select">
+                            <option value="0">Enero</option><option value="1">Febrero</option>
+                            <option value="2">Marzo</option><option value="3">Abril</option>
+                            <option value="4">Mayo</option><option value="5">Junio</option>
+                            <option value="6">Julio</option><option value="7">Agosto</option>
+                            <option value="8">Septiembre</option><option value="9">Octubre</option>
+                            <option value="10">Noviembre</option><option value="11">Diciembre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Año</label>
+                        <select id="reporteAnio" class="form-select"></select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="generarReporte()">Generar Reporte</button>
+                    </div>
+                    <div class="col-12 mt-3 text-end">
+                        <button id="btnExportar" class="btn btn-success" style="display: none;" onclick="exportarAExcel()">
+                            Descargar Excel (.xlsx)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultadoReporte" class="row">
+            </div>
+
+            <div class="col-md-10 mx-auto mt-4 mb-5">
+    <canvas id="graficoEficacia"></canvas>
+</div>
+    </div>
+
+    <script type="module">
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    import { auth, db } from "./js/firebase.js";
+
+
+    // --- BLOQUE DE SEGURIDAD (SOLO ADMIN) ---
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            window.location.href = 'login.html';
+            return;
+        }
+
+        try {
+            const userDoc = await getDoc(doc(db, "empleados", user.uid));
+            if (userDoc.exists() && userDoc.data().rol === "admin") {
+                // Es admin, permitimos ver y pre-cargamos el año
+                document.body.style.display = 'block';
+                configurarAnios();
+            } else {
+                // Es empleado, lo sacamos de aquí
+                window.location.href = 'vistaEmpleado.html';
+            }
+        } catch (error) {
+            console.error("Error de seguridad:", error);
+            window.location.href = 'login.html';
+        }
+    });
+
+    // Llenar el combo de años
+    function configurarAnios() {
+        const anioSelect = document.getElementById('reporteAnio');
+        if (!anioSelect) return;
+        const anioActual = new Date().getFullYear();
+        for(let i = anioActual; i >= 2024; i--) {
+            let opt = document.createElement('option');
+            opt.value = i; opt.textContent = i;
+            anioSelect.appendChild(opt);
+        }
+    }
+
+    let datosParaExcel = [];
+
+    window.generarReporte = async () => {
+        const mes = parseInt(document.getElementById('reporteMes').value);
+        const anio = parseInt(document.getElementById('reporteAnio').value);
+        const container = document.getElementById('resultadoReporte');
+        
+        container.innerHTML = '<div class="text-center p-4">📊 Analizando gestiones...</div>';
+
+        try {
+            const q = query(collection(db, "tickets"), where("estado", "==", "FINALIZADO"));
+            const snapshot = await getDocs(q);
+            
+            const conteo = {};
+            let totalMes = 0;
+
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                if (data.fecha_cierre) {
+                    const fecha = data.fecha_cierre.toDate();
+                    if (fecha.getMonth() === mes && fecha.getFullYear() === anio) {
+                        const nombre = data.empleado_nombre || "Admin / Sin asignar";
+                        
+                        if (!conteo[nombre]) {
+                            conteo[nombre] = { total: 0, cerrados: 0 };
+                        }
+                        conteo[nombre].total++;
+                        if (data.resultado_cierre === 'CERRADO') {
+                            conteo[nombre].cerrados++;
+                        }
+                        totalMes++;
+                    }
+                }
+            });
+
+            if (totalMes === 0) {
+                container.innerHTML = '<div class="alert alert-warning">No hay datos para este periodo.</div>';
+                document.getElementById('btnExportar').style.display = 'none';
+                if (window.miGrafico) window.miGrafico.destroy();
+                return;
+            }
+
+            // Renderizado de Tabla
+            let html = `
+                <div class="col-12 mb-3"><h4 class="text-center">Resumen: ${totalMes} Gestiones</h4></div>
+                <div class="col-md-10 mx-auto">
+                    <table class="table table-hover bg-white shadow-sm align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Asesor</th>
+                                <th class="text-center">Atendidos</th>
+                                <th class="text-center">Ventas/Alq.</th>
+                                <th class="text-center">Eficacia %</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+            
+            for (const emp in conteo) {
+                const d = conteo[emp];
+                const eficacia = ((d.cerrados / d.total) * 100).toFixed(1);
+                let colorBadg = eficacia >= 60 ? "bg-success" : (eficacia >= 30 ? "bg-warning text-dark" : "bg-danger");
+
+                html += `
+                    <tr>
+                        <td class="fw-bold">${emp}</td>
+                        <td class="text-center">${d.total}</td>
+                        <td class="text-center text-success fw-bold">${d.cerrados}</td>
+                        <td class="text-center"><span class="badge ${colorBadg} p-2">${eficacia}%</span></td>
+                    </tr>`;
+            }
+            html += `</tbody></table></div>`;
+            container.innerHTML = html;
+
+            // --- GRÁFICO ---
+            const ctx = document.getElementById('graficoEficacia').getContext('2d');
+            if (window.miGrafico) window.miGrafico.destroy();
+
+            const labels = Object.keys(conteo);
+            window.miGrafico = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Cerrados (Venta/Alq)', data: labels.map(e => conteo[e].cerrados), backgroundColor: '#28a745' },
+                        { label: 'Total Atendidos', data: labels.map(e => conteo[e].total), backgroundColor: '#FF6600' }
+                    ]
+                },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+
+            // Preparar Excel
+            datosParaExcel = Object.keys(conteo).map(n => ({
+                Empleado: n,
+                Total: conteo[n].total,
+                Exitos: conteo[n].cerrados,
+                Eficacia: ((conteo[n].cerrados / conteo[n].total) * 100).toFixed(1) + "%"
+            }));
+            document.getElementById('btnExportar').style.display = 'inline-block';
+
+        } catch (error) {
+            console.error(error);
+            container.innerHTML = '<div class="alert alert-danger">Error al cargar el reporte.</div>';
+        }
+    };
+
+    window.exportarAExcel = () => {
+    if (datosParaExcel.length === 0) return;
+
+    // Obtenemos los valores de los selects para el nombre del archivo
+    const mesSelect = document.getElementById('reporteMes');
+    const mesNombre = mesSelect.options[mesSelect.selectedIndex].text.toUpperCase();
+    const anio = document.getElementById('reporteAnio').value;
+
+    // 1. Crear el libro de trabajo (Workbook)
+    const wb = XLSX.utils.book_new();
+    
+    // 2. Convertir los datos a hoja (Worksheet)
+    const ws = XLSX.utils.json_to_sheet(datosParaExcel);
+
+    // 3. Añadir la hoja al libro
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte_Ventas");
+
+    // 4. Descargar con el formato: AÑO_MES_REPORTE_ISOSCELES.xlsx
+    const nombreArchivo = `${anio}_${mesNombre}_REPORTE_ISOSCELES.xlsx`;
+    
+    XLSX.writeFile(wb, nombreArchivo);
+};
+</script>
+</body>
+</html>

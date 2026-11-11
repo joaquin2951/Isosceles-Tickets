@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Isósceles</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="src/iconoCASA.ico">
+
+
+    <style>
+        :root {
+            --naranja-isosceles: #FF6600;
+            --negro-isosceles: #1A1A1A;
+        }
+
+        body {
+            background-color: #1A1A1A; /* Fondo oscuro sólido para el login */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Estilo de la tarjeta de login */
+        .card {
+            border-radius: 12px;
+            border-top: 5px solid var(--naranja-isosceles);
+        }
+
+        .btn-primary {
+            background-color: var(--naranja-isosceles) !important;
+            border-color: var(--naranja-isosceles) !important;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn-primary:hover {
+            background-color: #e65c00 !important;
+        }
+
+        .logo-login {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+
+
+<body class="bg-dark d-flex align-items-center" style="height: 100vh;">
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <div class="text-center">
+                <img src="src/LOGOORIGINAL.png" alt="Isósceles" class="logo-login">
+            </div>
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-4 text-center">
+                    <h4 class="mb-4 text-dark">Acceso al Sistema</h4>
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <input type="email" id="email" class="form-control" placeholder="Correo electrónico" required>
+                        </div>
+                        <div class="mb-3">
+                            <input type="password" id="password" class="form-control" placeholder="Contraseña" required>
+                        </div>
+                        <button type="submit" id="btnLogin" class="btn btn-primary w-100 py-2">Ingresar</button>
+                    </form>
+                    <div id="error-msg" class="text-danger mt-3 small"></div>
+                    <!-- Solo visible en modo demo (localhost + emuladores) -->
+                    <div id="demo-box" class="mt-3 p-2 border rounded bg-light small text-start" style="display:none;">
+                        <div class="fw-bold mb-1">🧪 Modo demo: usuarios de prueba</div>
+                        <div class="d-grid gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="usarDemo('admin@demo.com')">Entrar como Admin</button>
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="usarDemo('asesor@demo.com')">Entrar como Asesor</button>
+                        </div>
+                        <div class="text-muted mt-1">Contraseña de ambos: <code>demo1234</code></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    
+    
+    import { auth, db } from "./js/firebase.js";
+    import { USE_EMULATORS } from "./js/firebase-config.js";
+
+    if (USE_EMULATORS) {
+        document.getElementById('demo-box').style.display = 'block';
+        window.usarDemo = (email) => {
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = 'demo1234';
+            document.getElementById('loginForm').requestSubmit();
+        };
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        const errorMsg = document.getElementById('error-msg');
+        const btn = document.getElementById('btnLogin');
+
+        btn.disabled = true;
+        btn.innerText = "Verificando...";
+        errorMsg.innerText = "";
+
+        try {
+            //Autenticar con Email y Pass
+            const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+            const user = userCredential.user;
+
+            //Buscar el documento del empleado en Firestore por su UID
+            const docRef = doc(db, "empleados", user.uid);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
+                
+                //Redirigir según el rol
+                if (userData.rol === 'admin') {
+                    window.location.href = 'index.html';
+                } else {
+                    window.location.href = 'vistaEmpleado.html';
+                }
+            } else {
+                //Si no existe el documento en la colección empleados, 
+                //pero sí en Auth (podría ser un caso raro)
+                errorMsg.innerText = "Error: Perfil de usuario no encontrado.";
+                btn.disabled = false;
+                btn.innerText = "Ingresar";
+            }
+
+        } catch (error) {
+            console.error(error);
+            errorMsg.innerText = "Correo o contraseña incorrectos.";
+            btn.disabled = false;
+            btn.innerText = "Ingresar";
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de consultas - Isosceles</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="src/iconoCASA.ico">
+    <style>
+        .ticket-en-proceso { background-color: #fff9c4; border-left: 8px solid #fbc02d; }
+        .ticket-finalizado { background-color: #c8e6c9; border-left: 8px solid #388e3c; }
+        /* Animación de parpadeo suave */
+        @keyframes parpadeoAlerta {
+            0% { border-color: #ffc107; box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); }
+            50% { border-color: #dc3545; box-shadow: 0 0 15px rgba(220, 53, 69, 0.8); }
+            100% { border-color: #ffc107; box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); }
+        }
+
+        /* Clase que aplicaremos a los tickets antiguos */
+        .ticket-retrasado {
+            border: 3px solid #ffc107 !important;
+            animation: parpadeoAlerta 2s infinite;
+        }
+
+
+
+
+        /* Colores de Marca */
+
+body{
+    background-color: #818080;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+:root {
+    --naranja-isosceles: #FF6600;
+    --negro-isosceles: #1A1A1A;
+}
+
+/* Barra de Navegación */
+.navbar {
+    background-color: var(--negro-isosceles) !important;
+    border-bottom: 3px solid var(--naranja-isosceles);
+}
+
+/* Botones Principales */
+
+.btn-outline-warning {
+    border-color: var(--naranja-isosceles) !important;
+
+}
+
+
+.btn-outline-warning:hover {
+     background-color: #e65c00 !important; /* Un naranja un poco más oscuro al pasar el mouse */
+}
+
+.btn-primary {
+    background-color: var(--naranja-isosceles) !important;
+    border-color: var(--naranja-isosceles) !important;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.btn-primary:hover {
+    background-color: #e65c00 !important; /* Un naranja un poco más oscuro al pasar el mouse */
+}
+
+/* Las Cards de los Tickets */
+.card {
+    border-radius: 8px;
+    border: none;
+    border-left: 5px solid var(--negro-isosceles); /* Detalle elegante */
+}
+
+/* Modifico el parpadeo para que use el naranja de la empresa */
+@keyframes parpadeoAlerta {
+    0% { border-color: var(--naranja-isosceles); box-shadow: 0 0 5px rgba(255, 102, 0, 0.5); }
+    50% { border-color: #000; box-shadow: 0 0 15px rgba(0, 0, 0, 0.3); }
+    100% { border-color: var(--naranja-isosceles); box-shadow: 0 0 5px rgba(255, 102, 0, 0.5); }
+}
+
+.ticket-retrasado {
+    border: 3px solid var(--naranja-isosceles) !important;
+    animation: parpadeoAlerta 2s infinite;
+}
+
+
+body {
+    position: relative;
+    background-color: #f8f9fa; /* Color de fondo base */
+    min-height: 100vh;
+}
+
+body::before {
+    content: "";
+    position: fixed; /* Mantiene el fondo fijo al scrollear */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* Lo manda detrás de todo */
+    
+    /* CONFIGURACIÓN DEL LOGO */
+    background-image: url('src/LOGOORIGINAL.png'); /* Asegúrate de que la ruta sea correcta */
+    background-repeat: repeat;
+    background-size: 150px; /* Tamaño de cada logo en el patrón */
+    
+    /* EFECTO MARCA DE AGUA */
+    opacity: 0.1; /* 0.05 es muy sutil, súbelo a 0.1 si lo quieres más fuerte */
+    
+}
+
+
+
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body class="bg-light">
+    <style>
+  body { display: none; } /* Ocultamos todo por defecto */
+</style>
+
+
+<!--BARRA DE NAVEGACION-->
+<nav class="navbar navbar-dark bg-dark shadow-sm mb-4">
+    <div class="container">
+        <span class="navbar-brand">Consultas ISOSCELES</span>
+        <div>
+            <button class="btn btn-outline-warning me-2" onclick="window.location.href='empleados.html'">👥 Asesores</button>
+            <a href="reportes.html" class="btn btn-outline-warning shadow-sm">📊 Estadísticas</a>
+            <button class="btn btn-danger me-2" onclick="cerrarSesion()">Cerrar Sesión</button>
+            <button class="btn btn-primary" onclick="window.location.href='nuevo.html'">+ Nuevo Ticket</button>
+        </div>
+    </div>
+</nav>
+
+<!--ACTUALIZAR FECHAS POR LAS DUDAS-->
+<!-- 
+<button id="btnCorregir" style="background: red; color: white; padding: 15px; cursor: pointer; font-weight: bold;">
+    ⚠️ EJECUTAR CORRECCIÓN (1 ABRIL -> 31 MARZO)
+</button> 
+-->
+
+<!--FIN ACTUALIZAR FECHAS -->
+
+
+<!-- BUSCADOR Y FILTRO -->
+<div class="container mb-4">
+    <div class="row g-2">
+        <div class="col-md-8">
+            <input type="text" id="buscador" class="form-control" placeholder="🔍 Buscar cliente o asesor...">
+        </div>
+        <div class="col-md-4">
+            <select id="filtroEstado" class="form-select">
+                <option value="TODOS">Ver todos</option>
+                <option value="EN_PROCESO" selected>Solo Pendientes 🟡</option>
+                <option value="FINALIZADO">Solo Resueltos 🟢</option>
+            </select>
+        </div>
+    </div>
+    <div id="contador-resumen" class="mt-2 small text-muted px-1"></div>
+</div>
+
+<!--CONTENEDOR DE TICKETS-->
+<div class="container">
+    <div id="contenedor-tickets" class="row">
+        <div class="text-center">Cargando tickets...</div>
+    </div>
+</div>
+
+<script type="module">
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, query, orderBy, doc, getDoc, updateDoc, deleteDoc, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    import { auth, db } from "./js/firebase.js";
+
+
+    // --- BLOQUE DE SEGURIDAD (CANDADO ADMIN) ---
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            window.location.href = 'login.html';
+            return;
+        }
+
+        try {
+            // Buscamos el rol del usuario en Firestore usando su UID
+            const userDoc = await getDoc(doc(db, "empleados", user.uid));
+            
+            if (userDoc.exists() && userDoc.data().rol === "admin") {
+                // Es admin, permitimos ver la página
+                document.body.style.display = 'block';
+                cargarTickets(); // Iniciamos la carga de datos
+            } else {
+                // NO es admin, lo mandamos a la vista de empleado
+                console.warn("Acceso denegado: Redirigiendo a vista de empleado.");
+                window.location.href = 'vistaEmpleado.html';
+            }
+        } catch (error) {
+            console.error("Error verificando permisos:", error);
+            window.location.href = 'login.html';
+        }
+    });
+
+    // Función para cerrar sesión
+    window.cerrarSesion = async () => {
+        try {
+            await signOut(auth);
+            window.location.href = 'login.html';
+        } catch (error) {
+            console.error("Error al cerrar sesión:", error);
+        }
+    };
+
+    // --- LÓGICA DE TICKETS (ENCAPSULADA EN FUNCIÓN) ---
+    let todosLosTickets = [];
+
+    function cargarTickets() {
+        const q = query(collection(db, "tickets"), orderBy("fecha", "desc"));
+        onSnapshot(q, (snapshot) => {
+            todosLosTickets = [];
+            snapshot.forEach((docSnap) => {
+                todosLosTickets.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            renderizarTickets();
+        });
+    }
+
+    function renderizarTickets() {
+        const contenedor = document.getElementById('contenedor-tickets');
+        const txtBusqueda = document.getElementById('buscador').value.toLowerCase();
+        const filtroEstado = document.getElementById('filtroEstado').value;
+
+        const ticketsFiltrados = todosLosTickets.filter(t => {
+            const nombreC = (t.cliente_nombre || "").toLowerCase();
+            const nombreE = (t.empleado_nombre || "").toLowerCase();
+            const coincideBusqueda = nombreC.includes(txtBusqueda) || nombreE.includes(txtBusqueda);
+            const coincideEstado = (filtroEstado === 'TODOS') || (t.estado === filtroEstado);
+            return coincideBusqueda && coincideEstado;
+        });
+
+        const pendientes = ticketsFiltrados.filter(t => t.estado === 'EN_PROCESO').length;
+        document.getElementById('contador-resumen').innerHTML = `Mostrando ${ticketsFiltrados.length} tickets (${pendientes} pendientes)`;
+
+        contenedor.innerHTML = '';
+        if (ticketsFiltrados.length === 0) {
+            contenedor.innerHTML = '<div class="text-center p-5 text-muted">No se encontraron tickets.</div>';
+            return;
+        }
+
+        ticketsFiltrados.forEach((t) => {
+            const fCreacion = formatearFecha(t.fecha_creacion);
+            const fCierre = formatearFecha(t.fecha_cierre);
+            const id = t.id;
+            const claseEstado = t.estado === 'EN_PROCESO' ? 'ticket-en-proceso' : 'ticket-finalizado';
+
+            let textoResultado = "";
+            if (t.estado === 'FINALIZADO') {
+                const resultado = t.resultado_cierre || "FINALIZADO"; 
+                const icono = resultado === 'CERRADO' ? '✅' : '❌';
+                textoResultado = `<span class="fw-bold">${icono} Completado - ${resultado.replace('_', ' ')}</span>`;
+            }
+
+            let claseAlerta = "";
+            let avisoRetraso = "";
+            if (t.estado === 'EN_PROCESO' && t.fecha_creacion) {
+                const ahora = new Date();
+                const fechaTicket = t.fecha_creacion.toDate();
+                const diferenciaDias = (ahora - fechaTicket) / (1000 * 60 * 60 * 24);
+                if (diferenciaDias > 7) {
+                    claseAlerta = "ticket-retrasado";
+                    avisoRetraso = `<span class="badge bg-danger mb-2">⚠️ MÁS DE 1 SEMANA PENDIENTE</span>`;
+                }
+            }
+
+            let infoResolucion = "";
+            if (t.estado === 'EN_PROCESO') {
+                const telLimpio = t.empleado_telefono ? t.empleado_telefono.replace(/\D/g, '') : '';
+                infoResolucion = `<small class="d-block text-dark">➡️ Derivado a: <b>${t.empleado_nombre}</b> (<a href="https://wa.me/${telLimpio}" target="_blank" class="text-success fw-bold text-decoration-none"> ${t.empleado_telefono}</a>) <span class="text-muted">el ${fCreacion}</span></small>`;
+            } else {
+                const comentarioFinal = t.resolucion ? `<div class="mt-2 p-2 bg-light border-start border-3 border-success small italic"><b>💬 Nota de cierre:</b> ${t.resolucion}</div>` : '';
+                infoResolucion = t.empleado_nombre ? 
+        `<small class="d-block text-muted text-decoration-line-through">➡️ Derivado a: ${t.empleado_nombre} el ${fCreacion}</small>
+         <div class="mt-1">
+            <span class="badge bg-success">${textoResultado}</span>
+            <small class="text-muted d-block">Finalizado el: ${fCierre}</small>
+            ${comentarioFinal} 
+         </div>` :
+        `<small class="d-block text-success fw-bold">✅ Resuelto por admin el ${fCreacion}</small> ${comentarioFinal}`;
+            }
+
+            let htmlComentarios = "";
+            if (t.comentarios && t.comentarios.length > 0) {
+                htmlComentarios = `<div class="mt-2 p-2 bg-white rounded border-start border-3 border-info shadow-sm" style="font-size: 0.85rem;">`;
+                t.comentarios.forEach(c => {
+                    const fechaC = c.fecha ? c.fecha.toDate().toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : "";
+                    htmlComentarios += `<div class="mb-1 border-bottom pb-1"><strong>[${fechaC}]</strong>: ${c.texto}</div>`;
+                });
+                htmlComentarios += `</div>`;
+            }
+
+            const descSegura = t.descripcion.replace(/'/g, "&apos;").replace(/"/g, "&quot;").replace(/\n/g, " ");
+
+            contenedor.innerHTML += `
+            <div class="col-12 mb-3">
+                <div class="card ${claseEstado} ${claseAlerta} shadow-sm">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div style="flex-grow: 1; margin-right: 15px;">
+                            ${avisoRetraso} 
+                            <h5 class="mb-1">${t.cliente_nombre}</h5>
+                            <p class="mb-1 text-muted">📞 ${t.cliente_telefono}</p>
+                            ${infoResolucion} 
+                            <p class="mt-2 mb-1 small text-secondary"><b>📝 Descripción:</b> ${t.descripcion}</p>
+                            ${htmlComentarios}
+                            ${t.estado === 'EN_PROCESO' ? `
+                                <div class="input-group input-group-sm mt-3">
+                                    <input type="text" id="nuevo_comentario_${id}" class="form-control" placeholder="Añadir nota...">
+                                    <button class="btn btn-primary" onclick="agregarComentario('${id}')">Anotar</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="text-end" style="min-width: 120px;">
+                            ${t.estado === 'EN_PROCESO' ? `
+                                <button class="btn btn-sm btn-outline-primary mb-2 w-100" onclick="enviarAvisoWA('${t.empleado_nombre}', '${t.empleado_telefono}', '${t.cliente_nombre}', '${t.cliente_telefono}', '${descSegura}')">📲 Avisar</button>
+                                <button class="btn btn-sm btn-success mb-2 w-100" onclick="finalizarTicket('${id}')">Finalizar</button>` : ''}
+                            <button class="btn btn-sm btn-outline-danger w-100" onclick="eliminarTicket('${id}')">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        });
+    }
+
+    // Funciones globales para botones
+    window.agregarComentario = async (id) => {
+        const input = document.getElementById(`nuevo_comentario_${id}`);
+        if (!input.value.trim()) return;
+        try {
+            await updateDoc(doc(db, "tickets", id), {
+                comentarios: arrayUnion({ texto: input.value.trim(), fecha: new Date() })
+            });
+            input.value = "";
+        } catch (e) { console.error(e); }
+    };
+
+    window.finalizarTicket = async (id) => {
+    const { value: textoCierre, isConfirmed, isDenied } = await Swal.fire({
+        title: '¿Se concretó?',
+        icon: 'question',
+        input: 'textarea',
+        inputPlaceholder: 'Escribe aquí por qué se cerró o por qué no...',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: '✅ CERRADO',
+        denyButtonText: '❌ NO CERRADO',
+        // Esto asegura que el texto se capture antes de cerrar la alerta
+        preConfirm: () => {
+            return document.querySelector('.swal2-textarea').value;
+        },
+        preDeny: () => {
+            return document.querySelector('.swal2-textarea').value;
+        }
+    });
+
+    if (isConfirmed || isDenied) {
+        await updateDoc(doc(db, "tickets", id), {
+            estado: 'FINALIZADO',
+            resultado_cierre: isConfirmed ? "CERRADO" : "NO_CERRADO",
+            resolucion: textoCierre || "Sin detalles adicionales", // Aquí se guarda el comentario
+            fecha_cierre: serverTimestamp()
+        });
+    }
+};
+
+    window.eliminarTicket = async (id) => {
+        if(confirm('¿Eliminar ticket?')) await deleteDoc(doc(db, "tickets", id));
+    };
+
+    window.enviarAvisoWA = (nombreEmp, telEmp, nombreCli, telCli, desc) => {
+        const url = `https://wa.me/${telEmp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${nombreEmp}, tenes una nueva consulta pendiente de:\n👤 cliente: ${nombreCli}\n📞 telefono: ${telCli}\n📝 consulta: ${desc}`)}`;
+        window.open(url, '_blank');
+    };
+
+    const formatearFecha = (ts) => ts ? ts.toDate().toLocaleDateString('es-AR') : "";
+
+    document.getElementById('buscador').addEventListener('input', renderizarTickets);
+    document.getElementById('filtroEstado').addEventListener('change', renderizarTickets);
+
+
+/*
+//ACTUALIZAR FECHAS
+import { where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+document.getElementById('btnCorregir').onclick = async function() {
+    console.log("Iniciando corrección en modo Modular...");
+    
+    const inicio = new Date(2026, 3, 1, 0, 0, 0); // 1 de Abril
+    const fin = new Date(2026, 3, 1, 23, 59, 59);
+    const nuevaFecha = new Date(2026, 2, 31, 22, 0, 0); // 31 de Marzo
+
+    try {
+        const q = query(
+            collection(db, "tickets"), 
+            where("fecha_cierre", ">=", inicio), 
+            where("fecha_cierre", "<=", fin)
+        );
+
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            alert("No hay tickets del 1 de abril para corregir.");
+            return;
+        }
+        const batch = writeBatch(db);
+        
+        snapshot.forEach((docSnap) => {
+            batch.update(docSnap.ref, { fecha_cierre: nuevaFecha });
+        });
+
+        await batch.commit();
+        alert(`✅ ¡Éxito! Se corrigieron ${snapshot.size} tickets. Ya podés borrar el botón.`);
+        
+    } catch (error) {
+        console.error("Error detallado:", error);
+        alert("Error de permisos o sintaxis. Mirá la consola.");
+    }
+};
+    */
+</script>
+
+
+   
+
+
+</body>
+</html>

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuevo Ticket - Isósceles</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="src/iconoCASA.ico">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+
+    <style>
+/* Colores de Marca */
+
+body{
+    background-color: #818080;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+:root {
+    --naranja-isosceles: #FF6600;
+    --negro-isosceles: #1A1A1A;
+}
+
+/* Barra de Navegación */
+.navbar {
+    background-color: var(--negro-isosceles) !important;
+    border-bottom: 3px solid var(--naranja-isosceles);
+}
+
+/* Botones Principales */
+.btn-primary {
+    background-color: var(--naranja-isosceles) !important;
+    border-color: var(--naranja-isosceles) !important;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.btn-primary:hover {
+    background-color: #e65c00 !important; /* Un naranja un poco más oscuro al pasar el mouse */
+}
+
+/* Las Cards de los Tickets */
+.card {
+    border-radius: 8px;
+    border: none;
+    border-left: 5px solid var(--negro-isosceles); /* Detalle elegante */
+}
+body {
+    position: relative;
+    background-color: #f8f9fa; /* Color de fondo base */
+    min-height: 100vh;
+}
+
+body::before {
+    content: "";
+    position: fixed; /* Mantiene el fondo fijo al scrollear */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* Lo manda detrás de todo */
+    
+    /* CONFIGURACIÓN DEL LOGO */
+    background-image: url('src/LOGOORIGINAL.png'); /* Asegúrate de que la ruta sea correcta */
+    background-repeat: repeat;
+    background-size: 150px; /* Tamaño de cada logo en el patrón */
+    
+    /* EFECTO MARCA DE AGUA */
+    opacity: 0.1; /* 0.05 es muy sutil, súbelo a 0.1 si lo quieres más fuerte */
+    
+}
+    </style>
+
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow border-0">
+                <div class="card-header bg-dark text-white p-3">
+                    <h4 class="mb-0 text-center">Registrar Gestión</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form id="ticketForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre del Cliente</label>
+                            <input type="text" id="cliente_nombre" class="form-control" required placeholder="Nombre completo">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Teléfono</label>
+                            <input type="text" id="cliente_telefono" class="form-control" required placeholder="Ej: +54 9 3425325562">
+                        </div>
+
+                        <div class="mb-3">
+    <label class="form-label d-block">¿Cómo finalizó la llamada?</label>
+    <div class="btn-group w-100" role="group">
+        <button type="button" id="btnNoViable" class="btn btn-success p-3" onclick="seleccionarModo('cerrar')">No viable (Cerrar)</button>
+        <button type="button" id="btnDerivar" class="btn btn-outline-warning p-3" onclick="seleccionarModo('derivar')">Derivar (En Proceso)</button>
+    </div>
+</div>
+
+<div id="seccion_empleado" style="display: none;" class="card bg-light mb-3">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label fw-bold text-primary">Seleccionar Asesor</label>
+            <select id="empleado_nombre" class="form-select">
+                <option value="">-- Seleccione un asesor --</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold text-primary">Seleccionar Teléfono</label>
+            <select id="empleado_telefono" class="form-select" disabled>
+                <option value="">-- Primero elija un asesor --</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Descripción / Notas / Consulta del cliente</label>
+                            <textarea id="descripcion" class="form-control" rows="3" placeholder="Detalles de la conversación..."></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" id="btnGuardar" class="btn btn-primary btn-lg">Guardar Ticket</button>
+                            <a href="index.html" class="btn btn-link text-secondary">Volver al panel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, collection, addDoc, getDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    import { auth, db } from "./js/firebase.js";
+
+
+    // Seguridad
+   // Verificar si el usuario está logueado
+       onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    const userDoc = await getDoc(doc(db, "empleados", user.uid));
+    if (userDoc.exists() && userDoc.data().rol === "admin") {
+        document.body.style.display = 'block';
+    } else {
+        // Si no es admin, lo mandamos a su vista
+        window.location.href = 'vistaEmpleado.html';
+    }
+});
+
+    let modoSeleccionado = 'cerrar'; // Estado inicial
+
+           // 1. Gestión de botones y visibilidad
+window.seleccionarModo = (modo) => {
+    modoSeleccionado = modo;
+    const btnCerrar = document.getElementById('btnNoViable');
+    const btnDerivar = document.getElementById('btnDerivar');
+    const seccionEmp = document.getElementById('seccion_empleado');
+
+    if (modo === 'derivar') {
+        btnDerivar.className = 'btn btn-warning p-3'; 
+        btnCerrar.className = 'btn btn-outline-success p-3';
+        seccionEmp.style.display = 'block';
+    } else {
+        btnDerivar.className = 'btn btn-outline-warning p-3';
+        btnCerrar.className = 'btn btn-success p-3';
+        seccionEmp.style.display = 'none';
+    }
+};
+
+//Cargar empleados desde Firestore
+const selectEmp = document.getElementById('empleado_nombre');
+const selectTel = document.getElementById('empleado_telefono');
+
+async function cargarEmpleados() {
+    const querySnapshot = await getDocs(collection(db, "empleados"));
+    selectEmp.innerHTML = '<option value="">-- Seleccione un asesor --</option>';
+    querySnapshot.forEach((docSnap) => {
+        const emp = docSnap.data();
+        const opt = document.createElement('option');
+        
+        //value es el UID del documento
+        opt.value = docSnap.id; 
+        
+        //Guardamos el nombre y teléfonos en dataset para usarlos luego
+        opt.dataset.nombre = emp.nombre;
+        opt.dataset.telefonos = JSON.stringify(emp.telefonos || []);
+        opt.textContent = `${emp.nombre} (${emp.email})`;
+        selectEmp.appendChild(opt);
+    });
+}
+cargarEmpleados();
+
+// 3. Cascada de teléfonos
+selectEmp.addEventListener('change', () => {
+    const option = selectEmp.options[selectEmp.selectedIndex];
+    selectTel.innerHTML = '<option value="">-- Seleccione un número --</option>';
+    
+    if (option.value && option.dataset.telefonos) {
+        const tels = JSON.parse(option.dataset.telefonos);
+        selectTel.disabled = false;
+        tels.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t;
+            selectTel.appendChild(opt);
+        });
+    } else {
+        selectTel.disabled = true;
+    }
+});
+
+// 4. Guardar Ticket
+document.getElementById('ticketForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const esDerivacion = (modoSeleccionado === 'derivar');
+    const optionSeleccionada = selectEmp.options[selectEmp.selectedIndex];
+
+    if (esDerivacion && (!selectEmp.value || !selectTel.value)) {
+        Swal.fire("Atención", "Por favor seleccione asesor y teléfono", "warning");
+        return;
+    }
+
+    // Recolectamos los datos de los inputs
+    const clienteNombre = document.getElementById('cliente_nombre').value;
+    const clienteTel = document.getElementById('cliente_telefono').value;
+    const desc = document.getElementById('descripcion').value;
+
+    const nuevoTicket = {
+        cliente_nombre: clienteNombre,
+        cliente_telefono: clienteTel,
+        descripcion: desc,
+        fecha_creacion: serverTimestamp(),
+        estado: esDerivacion ? 'EN_PROCESO' : 'FINALIZADO',
+        fecha_cierre: esDerivacion ? null : serverTimestamp(),
+        empleado_id: esDerivacion ? selectEmp.value : null,
+        empleado_nombre: esDerivacion ? optionSeleccionada.dataset.nombre : "Admin",
+        empleado_telefono: esDerivacion ? selectTel.value : null,
+        fecha: serverTimestamp()
+    };
+
+    try {
+        // Bloqueamos el botón para evitar doble clic
+        const btnGuardar = document.getElementById('btnGuardar');
+        btnGuardar.disabled = true;
+        btnGuardar.innerText = "Guardando...";
+
+        await addDoc(collection(db, "tickets"), nuevoTicket);
+
+        if (esDerivacion) {
+            const nomEmp = optionSeleccionada.dataset.nombre;
+            const telEmp = selectTel.value;
+
+            // VENTANA DE CONFIRMACIÓN ELEGANTE
+            const result = await Swal.fire({
+                title: '¡Ticket Derivado!',
+                text: `¿Querés avisarle a ${nomEmp} por WhatsApp ahora mismo?`,
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonColor: '#25D366', // Color verde WhatsApp
+                cancelButtonColor: '#d33',
+                confirmButtonText: '✅ SÍ, AVISAR',
+                cancelButtonText: 'No, solo guardar'
+            });
+
+            if (result.isConfirmed) {
+                const telLimpio = telEmp.replace(/\D/g, '');
+                const mensaje = `Hola ${nomEmp}, tenés una nueva consulta:\n\n` +
+                                `👤 *Cliente:* ${clienteNombre}\n` +
+                                `📞 *Tel:* ${clienteTel}\n` +
+                                `📝 *Consulta:* ${desc}`;
+                
+                window.open(`https://wa.me/${telLimpio}?text=${encodeURIComponent(mensaje)}`, '_blank');
+            }
+        } else {
+            // Si fue un cierre directo (No viable)
+            await Swal.fire({
+                title: '¡Ticket Cerrado!',
+                text: 'La consulta se guardó como finalizada.',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+
+        // Redirigir al panel principal
+        window.location.href = 'index.html';
+
+    } catch (err) {
+        console.error("Error al guardar:", err);
+        Swal.fire("Error", "No se pudo guardar el ticket: " + err.message, "error");
+        document.getElementById('btnGuardar').disabled = false;
+    }
+});
+</script>
+
+</body>
+</html>

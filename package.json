@@ -1,0 +1,16 @@
+{
+  "name": "isosceles-tickets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema web de gestión de consultas/tickets para inmobiliarias (Firebase Auth + Firestore).",
+  "scripts": {
+    "dev": "concurrently -n emuladores,seed -c yellow,green \"firebase emulators:start --project demo-isosceles\" \"node scripts/seed.js --wait\"",
+    "emulators": "firebase emulators:start --project demo-isosceles",
+    "seed": "node scripts/seed.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5",
+    "firebase-admin": "^12.7.0",
+    "firebase-tools": "^13.29.0"
+  }
+}

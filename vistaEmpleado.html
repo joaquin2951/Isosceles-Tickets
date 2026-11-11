@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Tickets - Isósceles</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="src/iconoCASA.ico">
+    <style>
+        :root { --naranja-isosceles: #FF6600; --negro-isosceles: #1A1A1A; }
+        body { position: relative; background-color: #f8f9fa; min-height: 100vh; font-family: 'Segoe UI', sans-serif; }
+        body::before {
+            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background-image: url('src/LOGOORIGINAL.png'); background-repeat: repeat; background-size: 150px; opacity: 0.05;
+        }
+        .navbar { background-color: var(--negro-isosceles); border-bottom: 3px solid var(--naranja-isosceles); }
+        .card-ticket { border: none; border-left: 5px solid var(--naranja-isosceles); border-radius: 10px; transition: 0.3s; }
+        .btn-whatsapp { background-color: #25D366; color: white; font-weight: bold; }
+        .btn-whatsapp:hover { background-color: #128C7E; color: white; }
+    </style>
+</head>
+
+<body>
+
+<nav class="navbar navbar-dark p-3 shadow">
+    <div class="container d-flex justify-content-between">
+        <span class="navbar-brand fw-bold">ISÓSCELES - Asesores</span>
+        <button class="btn btn-outline-light btn-sm" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 id="saludo">Cargando mis tickets...</h4>
+    </div>
+
+    <div id="contenedor-tickets" class="row">
+        </div>
+</div>
+
+<script type="module">
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, query, where, onSnapshot, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    import { auth, db } from "./js/firebase.js";
+
+
+    onAuthStateChanged(auth, (user) => {
+        if (!user) {
+            window.location.href = 'login.html';
+        } else {
+            document.getElementById('saludo').innerText = `Mis Tickets Pendientes`;
+            cargarTicketsEmpleado(user.uid);
+        }
+    });
+
+    function cargarTicketsEmpleado(uid) {
+        // CONSULTA CLAVE: Solo tickets de este empleado y que estén en proceso
+        const q = query(
+            collection(db, "tickets"), 
+            where("empleado_id", "==", uid),
+            where("estado", "==", "EN_PROCESO"),
+            orderBy("fecha", "desc")
+        );
+
+        onSnapshot(q, (snapshot) => {
+            const contenedor = document.getElementById('contenedor-tickets');
+            contenedor.innerHTML = '';
+
+            if (snapshot.empty) {
+                contenedor.innerHTML = `<div class="text-center mt-5"><h5>No tienes tickets pendientes. ¡Buen trabajo!</h5></div>`;
+                return;
+            }
+
+            snapshot.forEach(docSnap => {
+                const t = docSnap.data();
+                const fecha = t.fecha ? new Date(t.fecha.seconds * 1000).toLocaleString() : 'Recién';
+                
+                const descSegura = JSON.stringify(t.descripcion).replace(/"/g, '&quot;');
+                const clienteSeguro = JSON.stringify(t.cliente_nombre).replace(/"/g, '&quot;');
+
+                contenedor.innerHTML += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card card-ticket shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between border-bottom pb-2 mb-2">
+                                    <h6 class="fw-bold mb-0">👤 ${t.cliente_nombre}</h6>
+                                    <small class="text-muted">${fecha}</small>
+                                </div>
+                                <p class="card-text small text-secondary">${t.descripcion || 'Sin descripción'}</p>
+                                <div class="d-grid gap-2">
+                                    <a href="https://wa.me/${t.cliente_telefono.replace(/\D/g,'')}" target="_blank" class="btn btn-whatsapp btn-sm">
+                                        📲 Contactar Cliente
+                                    </a>
+                                    <button class="btn btn-outline-dark btn-sm" onclick="contactarAdmin('${descSegura}', '${clienteSeguro}')">
+                                        🙋‍♂️ Consultar al Admin
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        });
+    }
+
+// Variable global para guardar el tel del jefe
+let telefonoAdmin = ""; 
+
+// 1. Buscamos el teléfono del Admin apenas carga la página
+async function obtenerTelefonoAdmin() {
+    const q = query(collection(db, "empleados"), where("rol", "==", "admin"));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach((doc) => {
+        // Guardamos el campo 'telefono'
+        telefonoAdmin = doc.data().telefono; 
+    });
+}
+obtenerTelefonoAdmin();
+
+
+    //IMPORTANTE PARA NUMERO DE TELEFONO
+    // 2. Función del botón actualizada
+window.contactarAdmin = (idTicket, cliente) => {
+    if (!telefonoAdmin) {
+        alert("El administrador no ha configurado su teléfono.");
+        return;
+    }
+    
+    const telLimpio = telefonoAdmin.replace(/\D/g, '');
+    const mensaje = encodeURIComponent(
+        `Hola! Tengo una duda sobre el ticket:\n` +
+        `👤 Cliente: ${cliente}\n` +
+        `🆔 Consulta: ${idTicket}`
+    );
+    
+    window.open(`https://wa.me/${telLimpio}?text=${mensaje}`, '_blank');
+};
+
+    window.cerrarSesion = () => {
+        signOut(auth).then(() => window.location.href = 'login.html');
+    };
+</script>
+</body>
+</html>
