@@ -9,7 +9,7 @@ Sistema web de gestión de consultas (tickets) para una inmobiliaria. El adminis
 | Panel del administrador | Tickets finalizados |
 |---|---|
 | ![Panel del administrador](docs/1.png) | ![Tickets finalizados](docs/2.png) |
-| **Login (modo demo)** | **Reportes por asesor** |
+| **Creación de Tickets** | **Vista Asesor** |
 | ![Creación de Tickets](docs/3.png) | ![Vista Asesor](docs/4.png) |
 
 ## Funcionalidades
